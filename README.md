@@ -1,5 +1,21 @@
 ## Launch Kong Gateway with Konga (Kong GUI)
 
+There is a time that Kong gateway does not satisfy your authentication and authorization strategy and you want to add your custom authentication and authorization service. So for this scenario you create your own authentication service and Kong gateway passes the requests to it. In this case we have two scenario to handle the requests.
+
+1. First Scenario (Public Routes): In this scenario a client send the request to Kong gateway (#1) then Kong gateway send it to the destination for example Back-end service (#2) then Back-end service send the response back to the Kong gateway (#3). At last, Kong gateway send the Back-end response to the client (#4).
+
+<p align="center">
+  <img src="./images/public-route.jpg" style="max-height:300px"/>
+</p>
+
+2.  Second Scenario (Private Routes): In this scenario a client send the request to Kong gateway (#1) then Kong gateway send it to the Auth service (#2) then Auth service verified the authorization header and send the Auth response back to the Kong gateway (#3), at this moment Kong gateway make a decision if the response status is over 299 then send back the response to the client (#6) for example 401 Unauthorized or 403 Forbidden but if the response is between 200 and 299 then send the user information along with the given body (#1) forward to Back-end service (#4) then Back-end service send the response back to Kong gateway (#5). At last, Kong gateway send the Back-end response to the client (#6).
+
+<p align="center">
+  <img src="./images/private-route.jpg" style="max-height:300px"/>
+</p>
+
+## Introduction
+
 I assume that you already know how Kong Gateway and its plugins works. For more information about Kong custom plugins you can see this [page](https://docs.konghq.com/2.2.x/plugin-development/).You can see the source code by this [Link](http://google.com).
 First of all we should bring up kong gateway along with the Konga GUI. So we should create a Yaml file with the name docker-compose. I customized this [repository](https://github.com/jorgecarcamob/kong-konga-postgres/blob/master/docker-compose.yml) to create Kong Gateway. Now run docker-compose.yaml file by the following command.
 
