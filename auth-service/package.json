@@ -1,0 +1,13 @@
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Vahid Zafari",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
