@@ -1,0 +1,172 @@
+version: "3.7"
+
+networks:
+  # Kong Gateway network
+  kong-net:
+
+secrets:
+  # Kong Gateway passwork to connect to Postgres database
+  kong_postgres_password:
+    file: ./POSTGRES_PASSWORD
+
+volumes:
+  # Kong Gateway passwork to connect to Postgres database
+  kong-db-data:
+
+services:
+  # ********************************************
+  # **************  Kong Gateway  **************
+  # ********************************************
+  # When running the Kong Migration with Postgres schema level permissions, the migration fails. We ran in to this trying to run Kong with least privilege within the Postgres database. The issue is that Kong can not migrate without database level permissions. We are making the user and the Postgres schema in steps that happen before running the Kong migration. For more information see this page: https://github.com/Kong/kong/issues/4483
+  kong-migrations:
+    container_name: kong-migrations
+    image: "${KONG_DOCKER_TAG:-kong:latest}"
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
+      KONG_PG_HOST: "kong-db"
+      KONG_PG_USER: ${KONG_PG_USER:-kong}
+      KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    networks:
+      - kong-net
+    restart: on-failure
+  kong-migrations-up:
+    container_name: kong-migrations-up
+    image: "${KONG_DOCKER_TAG:-kong:latest}"
+    command: kong migrations up && kong migrations finish
+    depends_on:
+      - kong-db
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
+      KONG_PG_HOST: "kong-db"
+      KONG_PG_USER: ${KONG_PG_USER:-kong}
+      KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    networks:
+      - kong-net
+    restart: on-failure
+  kong:
+    container_name: kong
+    # This build a Dockerfile to first initializing plugins then start Kong Gateway
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
+    environment:
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      # This Environment variable set the kong plugins
+      KONG_PLUGINS: bundled, kong-auth-request
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_CASSANDRA_CONTACT_POINTS: kong-db
+      KONG_DATABASE: postgres
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: ${KONG_PG_USER:-kong}
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    networks:
+      - kong-net
+    ports:
+      - "8000:8000/tcp"
+      - "127.0.0.1:8001:8001/tcp"
+      - "8443:8443/tcp"
+      - "127.0.0.1:8444:8444/tcp"
+    depends_on:
+      - kong-db
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: on-failure
+  kong-db:
+    container_name: kong-db
+    image: postgres:9.5
+    environment:
+      POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
+      POSTGRES_USER: ${KONG_PG_USER:-kong}
+      POSTGRES_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${KONG_PG_USER:-kong}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true
+    ports:
+      - "5432:5432"
+    networks:
+      - kong-net
+    volumes:
+      - kong-db-data:/var/lib/postgresql/data
+    # This container add konga_db collection to postgres database
+  konga-prepare:
+    container_name: konga-prepare
+    image: pantsel/konga:next
+    command: "-c prepare -a postgres -u postgresql://kong:kong@kong-db:5432/konga_db"
+    networks:
+      - kong-net
+    restart: on-failure
+    links:
+      - kong-db
+    depends_on:
+      - kong-db
+  konga:
+    container_name: konga
+    image: pantsel/konga:next
+    ports:
+      - 1337:1337
+    environment:
+      DB_ADAPTER: postgres
+      DB_DATABASE: konga_db
+      DB_HOST: "kong-db"
+      DB_USER: kong
+      DB_PASSWORD: kong
+      KONGA_SEED_USER_DATA_SOURCE_FILE: /konga_users.js
+      NODE_ENV: production
+    depends_on:
+      - konga-prepare
+    networks:
+      - kong-net
+    volumes:
+      - ./konga_users.js:/konga_users.js:ro
+    restart: on-failure
+  # ********************************************
+  # **************  Auth Service  **************
+  # ********************************************
+  auth-service:
+    container_name: auth-service
+    restart: on-failure
+    image: node:14-alpine
+    volumes:
+      - ./auth-service:/app
+    ports:
+      - "3000:3000"
+    command: ["sh", "-c", "cd /app && npm install && node index.js"]
+    networks:
+      - kong-net
+  # ********************************************
+  # ************  Backend Service  *************
+  # ********************************************
+  backend-service:
+    container_name: backend-service
+    restart: on-failure
+    image: node:14-alpine
+    volumes:
+      - ./backend-service:/app
+    ports:
+      - "3001:3000"
+    command: ["sh", "-c", "cd /app && npm install && node index.js"]
+    networks:
+      - kong-net
