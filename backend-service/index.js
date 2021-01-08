@@ -15,9 +15,13 @@ app.get("/public", (req, res) => {
 });
 
 app.post("/private", (req, res) => {
-  const { authUser } = req.body;
-  if (!authUser) res.statusCode(500);
-  const product = addProduct(authUser);
+  console.log(req.headers);
+  const userId = req.headers["x-user-id"],
+    firstname = req.headers["x-user-firstname"],
+    lastname = req.headers["x-user-lastname"];
+  if (!userId) res.sendStatus(401);
+  const user = { userId, firstname, lastname };
+  const product = addProduct(user);
   res.status(200).send({
     product,
     message: "[Backend Service] Product created successfully!",
