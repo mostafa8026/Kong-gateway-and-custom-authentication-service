@@ -17,7 +17,7 @@ There is a time that Kong gateway does not satisfy your authentication and autho
 ## Introduction
 
 I assume that you already know how Kong Gateway and its plugins works. For more information about Kong custom plugins you can see this [page](https://docs.konghq.com/2.2.x/plugin-development/). You can see the source code by this [Link](https://github.com/vahidzafari/Kong-Gateway-And-Custom-Authentication-Service).
-First of all we should bring up kong gateway along with the Konga GUI. So we should create a Yaml file with the name docker-compose. I customized this [repository](https://github.com/jorgecarcamob/kong-konga-postgres/blob/master/docker-compose.yml) to create Kong Gateway. Now run docker-compose.yaml file by the following command.
+First of all we should bring up kong gateway along with the Konga GUI. So we should create a Yaml file with the name docker-compose. I customized this [repository](https://github.com/jorgecarcamob/kong-konga-postgres/blob/master/docker-compose.yml) to create Kong Gateway and user this [repository](https://github.com/ascho/kong-auth-request) to create kong custom plugin. Now run docker-compose.yaml file by the following command.
 
 ```shell
 $ ls
@@ -111,6 +111,76 @@ Now if you open [http://localhost:8000/public](http://localhost:8000/public) lin
     }
   ],
   "count": 1,
+  "message": "[Backend Service] This is Public route!"
+}
+```
+
+## Second Scenario: Private Route
+
+In this scenario first add a route to the private backend route (/private) with the following parameters.
+
+```
+Name: Private
+Paths: /private (press Enter)
+Methods: POST (press Enter)
+Strip Path: false
+```
+
+<p align="center">
+  <img src="./images/private-route.png" style="max-height:300px"/>
+</p>
+
+Now to active authentication service for this route, go to the plugins section and add "kong auth request" plugin.
+
+<p align="center">
+  <img src="./images/private-route-plugin.png" style="max-height:300px"/>
+</p>
+<p align="center">
+  <img src="./images/private-route-plugin-section.png" style="max-height:300px"/>
+</p>
+<p align="center">
+  <img src="./images/auth-plugin.png" style="max-height:300px"/>
+</p>
+
+Add kong auth plugins with the following parameters
+
+```
+auth uri: http://auth-service:300/login
+origin request headers to forward to auth: authentication
+auth response headers to forward: x-user-id (press Enter)
+auth response headers to forward: x-user-firstname (press Enter)
+auth response headers to forward: x-user-lastname (press Enter)
+```
+
+<p align="center">
+  <img src="./images/auth-plugin-result.png" style="max-height:300px"/>
+</p>
+
+Now if you make a http post request to [http://localhost:8000/private](http://localhost:8000/private)
+
+```
+curl --location --request GET 'http://localhost:8000/public' --header 'Authorization: Bearer 123'
+```
+
+you should see the following result.
+
+```json
+{
+  "products": [
+    {
+      "name": "Product 1",
+      "price": "1 $",
+      "createdBy": "Admin",
+      "createAt": "2021-01-08T13:53:43.963Z"
+    },
+    {
+      "name": "Product 2",
+      "price": "2 $",
+      "createdBy": "Jane - Doe",
+      "createAt": "2021-01-08T13:54:07.693Z"
+    }
+  ],
+  "count": 2,
   "message": "[Backend Service] This is Public route!"
 }
 ```
