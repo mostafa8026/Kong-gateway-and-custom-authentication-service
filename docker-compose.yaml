@@ -153,7 +153,7 @@ services:
       - ./auth-service:/app
     ports:
       - "3000:3000"
-    command: ["sh", "-c", "cd /app && npm install && node index.js"]
+    command: ["sh", "-c", "cd /app && npm install && npm start"]
     networks:
       - kong-net
   # ********************************************
@@ -167,6 +167,6 @@ services:
       - ./backend-service:/app
     ports:
       - "3001:3000"
-    command: ["sh", "-c", "cd /app && npm install && node index.js"]
+    command: ["sh", "-c", "cd /app && npm install && npm start"]
     networks:
       - kong-net
