@@ -1,4 +1,3 @@
-const { timeStamp } = require("console");
 const express = require("express");
 const app = express();
 const port = 3000;
@@ -18,17 +17,20 @@ const users = [
 
 app.get("/login", (req, res) => {
   const token = req.headers.authorization;
-  const user = users.find((user) => user.id == token);
+  if (!token) res.sendStatus(401);
+  const key = token.slice("Bearer ".length);
+  if (!token) res.sendStatus(401);
+  const user = users.find((user) => user.id == key);
 
   if (user) {
-    res.status(200),
-      send({
-        user,
-        message: "[Auth Service] Login successfully!",
-      });
+    res.append('x-user-id', user.id)
+    res.append('x-user-firstname', user.firstName)
+    res.append('x-user-lastname', user.lastName)
+    res.sendStatus(200)
+    return
   }
 
-  res.statusCode(401);
+  res.sendStatus(401);
 });
 
 app.listen(port, () => {
