@@ -14,10 +14,11 @@ function addProduct(user) {
   const product = {
     name: `Product ${id}`,
     price: `${id} $`,
-    createdBy: `${user.firstName} - ${user.lastName}`,
+    createdBy: `${user.firstname} - ${user.lastname}`,
     createAt: new Date(),
   };
   products.push(product);
+  return product
 }
 
 module.exports = {
